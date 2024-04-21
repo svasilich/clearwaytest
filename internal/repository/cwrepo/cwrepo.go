@@ -112,7 +112,8 @@ func (r *Repository) getLastSession(ctx context.Context, userID int64) (auth.Use
 		"userID": userID,
 	}
 
-	rows, err := r.pool.Query(ctx, query, args)
+	session := auth.UserSession{}
+	err := r.pool.QueryRow(ctx, query, args).Scan(&session.Token, &session.OpenedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return auth.UserSession{}, ErrNoOpenSessions
@@ -120,11 +121,6 @@ func (r *Repository) getLastSession(ctx context.Context, userID int64) (auth.Use
 
 		return auth.UserSession{}, fmt.Errorf("an error occurred while trying to get the user's session: %w", err)
 	}
-	defer rows.Close()
-
-	session := auth.UserSession{}
-	rows.Next()
-	rows.Scan(&session.Token, &session.OpenedAt)
 	return session, nil
 }
 
@@ -135,7 +131,8 @@ func (r *Repository) getUserID(ctx context.Context, user string, passwordHash st
 		"passHash": passwordHash,
 	}
 
-	rows, err := r.pool.Query(ctx, query, args)
+	var userID int64
+	err := r.pool.QueryRow(ctx, query, args).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrUserNotExists
@@ -143,12 +140,6 @@ func (r *Repository) getUserID(ctx context.Context, user string, passwordHash st
 
 		return 0, err
 	}
-	defer rows.Close()
-
-	var userID int64
-	rows.Next()
-	rows.Scan(&userID)
-
 	return userID, nil
 }
 
@@ -172,7 +163,8 @@ func (r *Repository) getUserIDBySession(ctx context.Context, token auth.Token) (
 		"id": string(token),
 	}
 
-	rows, err := r.pool.Query(ctx, query, args)
+	var uid int64
+	err := r.pool.QueryRow(ctx, query, args).Scan(&uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrNoOpenSessions
@@ -180,10 +172,5 @@ func (r *Repository) getUserIDBySession(ctx context.Context, token auth.Token) (
 
 		return 0, err
 	}
-
-	var uid int64
-	rows.Next()
-	rows.Scan(&uid)
-
 	return uid, nil
 }

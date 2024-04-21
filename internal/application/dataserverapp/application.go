@@ -48,7 +48,6 @@ func (d *DataServerApp) Auth(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Проверить что тело запроса корректно.
 	var request authRequest
 	decoder := json.NewDecoder(req.Body)
 	decoder.DisallowUnknownFields()
@@ -69,7 +68,7 @@ func (d *DataServerApp) Auth(w http.ResponseWriter, req *http.Request) {
 
 	session, err := d.authorizer.Login(req.Context(), request.Login, passHash)
 	if err != nil {
-		if errors.Is(err, auth.ErrUnauthorized) {
+		if errors.Is(err, auth.ErrUnauthorized) || errors.Is(err, cwrepo.ErrUserNotExists) {
 			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "invalid login/password")
 			return
 		}
