@@ -25,7 +25,7 @@ func main() {
 	}
 	defer repo.Close()
 
-	dataServer := dataserverapp.NewDataServerApp(repo, repo, auth.HasherMD5Hex, repo)
+	dataServer := dataserverapp.NewDataServerApp(repo, repo, auth.HasherMD5Hex, repo, repo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth", dataServer.Auth)

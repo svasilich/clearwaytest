@@ -85,6 +85,27 @@ func (r *Repository) WriteAsset(ctx context.Context, asset string, uid int64, da
 	return err
 }
 
+// ReadAsset read asset data from data base.
+func (r *Repository) ReadAsset(ctx context.Context, asset string, uid int64) ([]byte, error) {
+	query := "SELECT data FROM assets WHERE name = @asset AND uid = @uid LIMIT 1"
+	args := pgx.NamedArgs{
+		"asset": asset,
+		"uid":   uid,
+	}
+
+	var data []byte
+	err := r.pool.QueryRow(ctx, query, args).Scan(&data)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []byte{}, ErrForbiddenAsset
+		}
+
+		return []byte{}, err
+	}
+
+	return data, nil
+}
+
 func (r *Repository) getLastSession(ctx context.Context, userID int64) (auth.UserSession, error) {
 	query := "SELECT id, created_at FROM sessions WHERE uid = @userID ORDER BY created_at DESC LIMIT 1"
 	args := pgx.NamedArgs{

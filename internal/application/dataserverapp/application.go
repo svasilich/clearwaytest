@@ -21,6 +21,7 @@ type DataServerApp struct {
 	userRetriever auth.DBUserRetriever
 	passHasher    auth.Hasher
 	assetWriter   asset.DBAssetWriter
+	assetReader   asset.DBAssetReader
 }
 
 // NewDataServerApp create instance for DataServer.
@@ -29,12 +30,14 @@ func NewDataServerApp(
 	sessionRetiever auth.DBUserRetriever,
 	passHasher auth.Hasher,
 	assetWeiter asset.DBAssetWriter,
+	assetReader asset.DBAssetReader,
 ) *DataServerApp {
 	return &DataServerApp{
 		authorizer:    authorizer,
 		userRetriever: sessionRetiever,
 		passHasher:    passHasher,
 		assetWriter:   assetWeiter,
+		assetReader:   assetReader,
 	}
 }
 
@@ -87,27 +90,22 @@ func (d *DataServerApp) Upload(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Получить ассет.
-	// asset := path.Base(req.RequestURI)
-	// log.Default().Println(asset)
 	asset, err := getAsset(req.RequestURI)
 	if err != nil {
 		responsehelper.SetupJSONResponse(w, http.StatusBadRequest, "error", fmt.Errorf("invalid path: %s", req.RequestURI).Error())
 		return
 	}
 
-	// Проверить, существует ли сессия.
 	token, err := getBearerToken(strings.Trim(req.Header.Get("Authorization"), " "))
 	if err != nil {
 		responsehelper.SetupJSONResponse(w, http.StatusBadRequest, "error", fmt.Errorf("invalid credentials").Error())
 		return
 	}
 
-	// Получить пользователя.
 	uid, err := d.userRetriever.GetUserBySession(req.Context(), dauth.Token(token))
 	if err != nil {
 		if errors.Is(err, cwrepo.ErrNoOpenSessions) {
-			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "Session not open or has expired")
+			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "session not open or has expired")
 			return
 		}
 
@@ -136,5 +134,48 @@ func (d *DataServerApp) Upload(w http.ResponseWriter, req *http.Request) {
 
 // Download is handler downloading users data.
 func (d *DataServerApp) Download(w http.ResponseWriter, req *http.Request) {
-	panic("not implemented")
+	if req.Method != http.MethodGet {
+		responsehelper.SetupJSONResponse(w, http.StatusBadRequest, "error", "invalid request method")
+		return
+	}
+
+	asset, err := getAsset(req.RequestURI)
+	if err != nil {
+		responsehelper.SetupJSONResponse(w, http.StatusBadRequest, "error", fmt.Errorf("invalid path: %s", req.RequestURI).Error())
+		return
+	}
+
+	token, err := getBearerToken(strings.Trim(req.Header.Get("Authorization"), " "))
+	if err != nil {
+		responsehelper.SetupJSONResponse(w, http.StatusBadRequest, "error", fmt.Errorf("invalid credentials").Error())
+		return
+	}
+
+	uid, err := d.userRetriever.GetUserBySession(req.Context(), dauth.Token(token))
+	if err != nil {
+		if errors.Is(err, cwrepo.ErrNoOpenSessions) {
+			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "session not open or has expired")
+			return
+		}
+
+		responsehelper.Setup5xx(w, err)
+		return
+	}
+
+	data, err := d.assetReader.ReadAsset(req.Context(), asset, uid)
+	if err != nil {
+		if errors.Is(err, cwrepo.ErrForbiddenAsset) {
+			responsehelper.SetupJSONResponse(w, http.StatusForbidden, "error", "you can't get this asset")
+			return
+		}
+
+		responsehelper.Setup5xx(w, err)
+		return
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		responsehelper.Setup5xx(w, err)
+		return
+	}
 }
