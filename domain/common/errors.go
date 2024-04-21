@@ -1,4 +1,4 @@
-package cwrepo
+package common
 
 import "errors"
 
@@ -10,3 +10,6 @@ var ErrNoOpenSessions = errors.New("cat't find any open sessions for the user")
 
 // ErrForbiddenAsset throw when cat't find asset with given credentials
 var ErrForbiddenAsset = errors.New("cat't find asset with given credentials")
+
+// ErrUnauthorized throw when can't find login and password pair in db.
+var ErrUnauthorized = errors.New("user not authorized")

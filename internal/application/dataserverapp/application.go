@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	dauth "github.com/svasilich/clearwaytest/domain/auth"
+	"github.com/svasilich/clearwaytest/domain/common"
 	"github.com/svasilich/clearwaytest/internal/application/asset"
 	"github.com/svasilich/clearwaytest/internal/application/auth"
 	"github.com/svasilich/clearwaytest/internal/lib/responsehelper"
-	"github.com/svasilich/clearwaytest/internal/repository/cwrepo"
 )
 
 // DataServerApp is servant for handle user requests.
@@ -68,7 +68,7 @@ func (d *DataServerApp) Auth(w http.ResponseWriter, req *http.Request) {
 
 	session, err := d.authorizer.Login(req.Context(), request.Login, passHash)
 	if err != nil {
-		if errors.Is(err, auth.ErrUnauthorized) || errors.Is(err, cwrepo.ErrUserNotExists) {
+		if errors.Is(err, common.ErrUnauthorized) || errors.Is(err, common.ErrUserNotExists) {
 			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "invalid login/password")
 			return
 		}
@@ -103,7 +103,7 @@ func (d *DataServerApp) Upload(w http.ResponseWriter, req *http.Request) {
 
 	uid, err := d.userRetriever.GetUserBySession(req.Context(), dauth.Token(token))
 	if err != nil {
-		if errors.Is(err, cwrepo.ErrNoOpenSessions) {
+		if errors.Is(err, common.ErrNoOpenSessions) {
 			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "session not open or has expired")
 			return
 		}
@@ -152,7 +152,7 @@ func (d *DataServerApp) Download(w http.ResponseWriter, req *http.Request) {
 
 	uid, err := d.userRetriever.GetUserBySession(req.Context(), dauth.Token(token))
 	if err != nil {
-		if errors.Is(err, cwrepo.ErrNoOpenSessions) {
+		if errors.Is(err, common.ErrNoOpenSessions) {
 			responsehelper.SetupJSONResponse(w, http.StatusUnauthorized, "error", "session not open or has expired")
 			return
 		}
@@ -163,7 +163,7 @@ func (d *DataServerApp) Download(w http.ResponseWriter, req *http.Request) {
 
 	data, err := d.assetReader.ReadAsset(req.Context(), asset, uid)
 	if err != nil {
-		if errors.Is(err, cwrepo.ErrForbiddenAsset) {
+		if errors.Is(err, common.ErrForbiddenAsset) {
 			responsehelper.SetupJSONResponse(w, http.StatusForbidden, "error", "you can't get this asset")
 			return
 		}

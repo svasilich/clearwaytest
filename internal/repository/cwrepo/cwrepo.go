@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/svasilich/clearwaytest/domain/auth"
+	"github.com/svasilich/clearwaytest/domain/common"
 )
 
 // Repository is struct for access to database.
@@ -66,7 +67,7 @@ func (r *Repository) GetUserBySession(ctx context.Context, token auth.Token) (in
 	}
 
 	if token != activeSession.Token {
-		return 0, ErrNoOpenSessions
+		return 0, common.ErrNoOpenSessions
 	}
 
 	return id, nil
@@ -97,7 +98,7 @@ func (r *Repository) ReadAsset(ctx context.Context, asset string, uid int64) ([]
 	err := r.pool.QueryRow(ctx, query, args).Scan(&data)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []byte{}, ErrForbiddenAsset
+			return []byte{}, common.ErrForbiddenAsset
 		}
 
 		return []byte{}, err
@@ -116,7 +117,7 @@ func (r *Repository) getLastSession(ctx context.Context, userID int64) (auth.Use
 	err := r.pool.QueryRow(ctx, query, args).Scan(&session.Token, &session.OpenedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return auth.UserSession{}, ErrNoOpenSessions
+			return auth.UserSession{}, common.ErrNoOpenSessions
 		}
 
 		return auth.UserSession{}, fmt.Errorf("an error occurred while trying to get the user's session: %w", err)
@@ -135,7 +136,7 @@ func (r *Repository) getUserID(ctx context.Context, user string, passwordHash st
 	err := r.pool.QueryRow(ctx, query, args).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrUserNotExists
+			return 0, common.ErrUserNotExists
 		}
 
 		return 0, err
@@ -167,7 +168,7 @@ func (r *Repository) getUserIDBySession(ctx context.Context, token auth.Token) (
 	err := r.pool.QueryRow(ctx, query, args).Scan(&uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrNoOpenSessions
+			return 0, common.ErrNoOpenSessions
 		}
 
 		return 0, err
