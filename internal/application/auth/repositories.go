@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 
+	"github.com/svasilich/clearwaytest/domain/auth"
 	dauth "github.com/svasilich/clearwaytest/domain/auth"
 )
 
@@ -11,7 +12,7 @@ type DBUserAuthorizer interface {
 	Login(ctx context.Context, user string, passwordHash string) (dauth.UserSession, error)
 }
 
-// DBUserSessionRetriever retrieves the last opened session for a usee.
-type DBUserSessionRetriever interface {
-	GetLastSession(ctx context.Context, userID int64) (dauth.UserSession, error)
+// DBUserRetriever retrieve user by session if the session is active. Only the last user session is active.
+type DBUserRetriever interface {
+	GetUserBySession(ctx context.Context, token auth.Token) (int64, error)
 }

@@ -50,11 +50,42 @@ func (r *Repository) Login(ctx context.Context, user string, passwordHash string
 		return auth.UserSession{}, fmt.Errorf("can't login %s: %w", user, err)
 	}
 
-	return r.GetLastSession(ctx, userID)
+	return r.getLastSession(ctx, userID)
 }
 
-// GetLastSession returns the last active user session.
-func (r *Repository) GetLastSession(ctx context.Context, userID int64) (auth.UserSession, error) {
+// GetUserBySession return user ID if given session is active.
+func (r *Repository) GetUserBySession(ctx context.Context, token auth.Token) (int64, error) {
+	id, err := r.getUserIDBySession(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+
+	activeSession, err := r.getLastSession(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+
+	if token != activeSession.Token {
+		return 0, ErrNoOpenSessions
+	}
+
+	return id, nil
+}
+
+// WriteAsset store asset data to data base.
+func (r *Repository) WriteAsset(ctx context.Context, asset string, uid int64, data []byte) error {
+	query := "INSERT INTO assets (name, uid, data) VALUES (@asset, @uid, @data) ON CONFLICT (name, uid) DO UPDATE SET data = @data"
+	args := pgx.NamedArgs{
+		"asset": asset,
+		"uid":   uid,
+		"data":  data,
+	}
+
+	_, err := r.pool.Exec(ctx, query, args)
+	return err
+}
+
+func (r *Repository) getLastSession(ctx context.Context, userID int64) (auth.UserSession, error) {
 	query := "SELECT id, created_at FROM sessions WHERE uid = @userID ORDER BY created_at DESC LIMIT 1"
 	args := pgx.NamedArgs{
 		"userID": userID,
@@ -112,4 +143,26 @@ func (r *Repository) createSession(ctx context.Context, userID int64) error {
 	}
 
 	return nil
+}
+
+func (r *Repository) getUserIDBySession(ctx context.Context, token auth.Token) (int64, error) {
+	query := "SELECT uid FROM sessions WHERE id = @id LIMIT 1"
+	args := pgx.NamedArgs{
+		"id": string(token),
+	}
+
+	rows, err := r.pool.Query(ctx, query, args)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrNoOpenSessions
+		}
+
+		return 0, err
+	}
+
+	var uid int64
+	rows.Next()
+	rows.Scan(&uid)
+
+	return uid, nil
 }
